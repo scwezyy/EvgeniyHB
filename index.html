@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Миссия: 43 Года</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Noto+Serif+SC:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        @font-face {
+            font-family: 'Pricedown';
+            src: url('./fonts/pricedown.otf') format('opentype'),
+                 url('./fonts/pricedown.ttf') format('truetype');
+        }
+
+        body {
+            font-family: 'Oswald', sans-serif;
+            background-color: black;
+            color: white;
+            overflow: hidden;
+            margin: 0;
+            user-select: none;
+        }
+
+        .font-gta { font-family: 'Pricedown', sans-serif; }
+        .font-zh { font-family: 'Noto Serif SC', serif; }
+        .font-terminal { font-family: 'Share Tech Mono', monospace; }
+
+        .screen {
+            display: none;
+            opacity: 0;
+            transition: opacity 1s ease;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .screen.active {
+            display: flex;
+            opacity: 1;
+        }
+        .screen.fade-out { opacity: 0 !important; }
+
+        .tw-cursor {
+            animation: blink 1s step-end infinite;
+            border-left: 2px solid white;
+            margin-left: 2px;
+        }
+        @keyframes blink { 50% { border-color: transparent; } }
+
+        .gta-menu-btn:hover {
+            color: #eab308;
+            cursor: pointer;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+        }
+
+        .shake { animation: shake 0.5s; }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+            100% { transform: translateX(0); }
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(34, 197, 94, 0.2) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+    </style>
+</head>
+<body class="relative bg-black w-screen h-screen">
+
+    <!-- АУДИО ФАЙЛЫ (Скрытые) -->
+    <audio id="bg-music" src="./bgm.mp3" loop></audio>
+    <audio id="voice-sfx" src="./voice.mp3"></audio>
+    <audio id="win-sfx" src="./win.mp3"></audio>
+
+    <!-- ПОЛЗУНОК ГРОМКОСТИ -->
+    <div id="volume-control" class="fixed bottom-4 right-4 z-50 flex items-center gap-3 bg-black/80 px-3 py-2 border border-yellow-500 rounded shadow-[0_0_10px_rgba(234,179,8,0.3)]">
+        <span class="text-yellow-500 font-bold font-gta tracking-wider text-xl mt-1">VOL</span>
+        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" 
+               class="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-yellow-500">
+    </div>
+
+    <!-- ЭКРАН 1: ВИДЕО ПРОЛОГ -->
+    <div id="screen-intro" class="screen active flex-col justify-center items-center">
+        <video id="intro-video" class="absolute inset-0 w-full h-full object-cover" playsinline>
+            <source src="./Cinematic_Universal_style_stud.mp4" type="video/mp4">
+        </video>
+        <div class="z-10 flex flex-col items-center">
+            <button id="start-btn" class="font-gta text-5xl md:text-6xl text-white hover:text-yellow-500 border-4 border-yellow-500 bg-black/70 px-10 py-4 uppercase transition-colors shadow-2xl">
+                Начать Миссию
+            </button>
+            <p id="sound-hint" class="mt-6 text-gray-300 tracking-widest text-sm uppercase bg-black/50 px-4 py-1 rounded">Нажми, чтобы начать и включить звук</p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: ТЕРМИНАЛ ДОСЬЕ -->
+    <div id="screen-dossier" class="screen flex-col justify-center items-center bg-black relative">
+        <div class="scanline"></div>
+        <div class="w-full max-w-3xl border border-green-500 bg-green-950/20 p-8 shadow-[0_0_20px_rgba(34,197,94,0.3)] font-terminal text-green-500 z-10">
+            <h2 class="text-2xl md:text-3xl font-bold mb-6 border-b border-green-500/50 pb-2">СИНДИКАТ ОС // ПОИСК КАНДИДАТА...</h2>
+            
+            <div id="dossier-content" class="flex flex-col md:flex-row gap-8 items-center md:items-start opacity-0 transition-opacity duration-1000">
+                <div class="relative">
+                    <img src="./img/photo1.jpg" alt="Фото" class="w-48 h-56 object-cover grayscale contrast-125 border-2 border-green-500" onerror="this.src='https://via.placeholder.com/200x250/000/22c55e?text=TARGET+IMG'">
+                    <div class="absolute inset-0 bg-green-500/20 mix-blend-overlay"></div>
+                </div>
+                
+                <div class="flex-1 text-lg leading-relaxed space-y-2">
+                    <p>> ПОЛНОЕ ИМЯ: <span class="text-white">ЗАСЕКРЕЧЕНО</span></p>
+                    <p>> ПОЗЫВНОЙ: <span class="text-white">ПАПА</span></p>
+                    <p>> СПЕЦИАЛИЗАЦИЯ: <span class="text-white">ПЕРЕВОДЧИК ЭЛИТНОГО УРОВНЯ</span></p>
+                    <p>> ТЕКУЩИЙ УРОВЕНЬ (ВОЗРАСТ): <span class="text-yellow-400 font-bold">43</span></p>
+                    <p>> СТАТУС В БАЗЕ: <span class="text-white">ЛЕГЕНДА</span></p>
+                    <br>
+                    <p class="text-xl font-bold text-green-400 animate-pulse">> ИДЕАЛЬНОЕ СОВПАДЕНИЕ НАЙДЕНО</p>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <button id="assign-btn" class="hidden font-gta text-4xl text-black bg-green-500 hover:bg-green-400 px-8 py-3 uppercase transition-colors">
+                    Назначить на миссию
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 3: GTA ИНТЕРФЕЙС И ДИАЛОГ (ГРУВ СТРИТ) -->
+    <div id="screen-gta" class="screen flex-col bg-center bg-cover" style="background-image: url('./img/grove.jpg');">
+        <div class="absolute inset-0 bg-black/40"></div> 
+        
+        <!-- HUD -->
+        <div class="absolute top-6 right-6 z-10 flex flex-col items-end gap-1 w-64">
+            <div class="flex items-center justify-end gap-3 w-full">
+                <span class="text-sm font-bold tracking-wider">HP</span>
+                <div class="w-40 h-4 border-[3px] border-black bg-red-900/50">
+                    <div class="h-full bg-green-500 w-[100%]"></div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 w-full">
+                <span class="text-sm font-bold tracking-wider">ARMOR</span>
+                <div class="w-40 h-4 border-[3px] border-black bg-gray-900/50">
+                    <div class="h-full bg-blue-400 w-[100%]"></div>
+                </div>
+            </div>
+            <div class="font-gta text-5xl text-green-500 mt-2 tracking-wide" style="-webkit-text-stroke: 2px black; text-shadow: 2px 2px 0 #000;">$43 000</div>
+        </div>
+
+        <!-- Катсцена -->
+        <div class="absolute bottom-16 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-10 flex flex-col items-center">
+            <div class="flex gap-16 z-20 transform translate-y-10">
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-20 h-20 border-2 border-yellow-500 bg-red-950 flex items-center justify-center rounded-sm text-4xl font-zh text-yellow-500 shadow-[0_4px_10px_rgba(0,0,0,0.8)]">龍</div>
+                    <span class="text-xs font-gta text-yellow-500 tracking-widest bg-black/80 px-2 py-0.5 rounded">БОСС ТРИАДЫ</span>
+                </div>
+                <div class="flex flex-col items-center gap-1 opacity-60">
+                    <div class="w-20 h-20 border-2 border-blue-500 bg-blue-950 flex items-center justify-center rounded-sm text-4xl font-zh text-blue-400 shadow-[0_4px_10px_rgba(0,0,0,0.8)]">譯</div>
+                    <span class="text-xs font-gta text-blue-400 tracking-widest bg-black/80 px-2 py-0.5 rounded">ПЕРЕВОДЧИК</span>
+                </div>
+            </div>
+            <div class="w-full bg-black/90 border border-yellow-500 p-8 pt-14 rounded-sm shadow-2xl relative z-10">
+                <p id="dialog-text" class="text-white text-lg min-h-[4rem] leading-relaxed"></p>
+                <div id="dialog-choices" class="hidden flex-col gap-3 mt-6 text-gray-400 font-gta text-2xl uppercase">
+                    <span class="gta-menu-btn" data-choice="start">Взяться за перевод манускрипта</span>
+                    <span class="gta-menu-btn" data-choice="money">Запросить повышенную ставку и начать</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 4: МИНИ-ИГРА (DUOLINGO-STYLE) -->
+    <div id="screen-minigame" class="screen flex-col justify-center items-center bg-gray-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] relative">
+        <div class="absolute inset-0 bg-black/60"></div>
+        <div class="z-10 flex flex-col items-center w-full px-4">
+            <h2 class="font-gta text-yellow-500 text-5xl md:text-6xl mb-2" style="text-shadow: 2px 2px 0 #000;">РАСШИФРОВКА</h2>
+            <p id="mg-round-text" class="font-gta text-gray-300 text-2xl tracking-widest mb-8">ЭТАП 1 ИЗ 2</p>
+
+            <div class="bg-black/80 p-8 border border-yellow-500/50 rounded-lg shadow-2xl w-full max-w-3xl flex flex-col items-center">
+                <div id="mg-chinese" class="font-zh text-4xl md:text-5xl text-yellow-500 mb-10 text-center drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
+
+                <div id="mg-answer-zone" class="w-full min-h-[70px] flex flex-wrap justify-center gap-3 mb-8 border-b-2 border-gray-600 pb-4"></div>
+                <div id="mg-word-bank" class="w-full flex flex-wrap justify-center gap-3 mb-10 min-h-[100px]"></div>
+
+                <button id="mg-check-btn" class="font-gta text-4xl text-black bg-yellow-500 hover:bg-yellow-400 px-12 py-3 uppercase transition-colors shadow-lg hidden">Проверить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 5: ФИНАЛ (ВЕЧЕРНИЙ ЛОС САНТОС) -->
+    <div id="screen-final" class="screen flex-col justify-center items-center text-center p-8 bg-cover bg-center" style="background-image: url('./img/ls_evening.jpg');">
+        <div class="absolute inset-0 bg-black/60"></div> 
+        
+        <div class="max-w-4xl mb-12 z-10 bg-black/70 p-10 border border-yellow-500/50 rounded-xl backdrop-blur-sm shadow-2xl mt-12">
+            <h2 class="font-gta text-yellow-500 text-4xl mb-4">МАНУСКРИПТ РАСШИФРОВАН:</h2>
+            <p class="text-xl md:text-2xl leading-relaxed text-gray-200">
+                Пап, с днём рождения! <span class="text-yellow-500 font-bold">43 года</span> — это классный возраст. Желаю тебе самого крепкого здоровья, спокойствия и побольше поводов для радости каждый день. Спасибо тебе за поддержку, заботу и за то, что ты такой крутой папа. Пусть работа дается легко, а дома всегда ждет уют и отдых. Очень тебя люблю!
+            </p>
+        </div>
+        
+        <button id="finish-btn" class="z-10 font-gta text-5xl text-black bg-yellow-500 hover:bg-yellow-400 border-4 border-black px-12 py-5 uppercase transition-transform hover:scale-105 shadow-[0_0_20px_rgba(234,179,8,0.6)]">
+            Завершить миссию
+        </button>
+        
+        <!-- Баннер Mission Passed -->
+        <div id="mission-passed" class="hidden absolute inset-0 bg-black/90 flex-col justify-center items-center z-50">
+            <h1 class="font-gta text-7xl md:text-9xl text-[#f1c40f] tracking-tighter text-center" style="-webkit-text-stroke: 3px black; text-shadow: 6px 6px 0 #000;">MISSION PASSED!</h1>
+            <p class="font-gta text-5xl md:text-7xl text-white mt-6 tracking-wide" style="-webkit-text-stroke: 2px black; text-shadow: 3px 3px 0 #000;">RESPECT +43</p>
+        </div>
+    </div>
+
+    <!-- =============== СКРИПТЫ (ЛОГИКА САЙТА) =============== -->
+    <script>
+        (function () {
+            'use strict';
+
+            const screens = {
+                intro: document.getElementById('screen-intro'),
+                dossier: document.getElementById('screen-dossier'),
+                gta: document.getElementById('screen-gta'),
+                minigame: document.getElementById('screen-minigame'),
+                final: document.getElementById('screen-final')
+            };
+
+            // Аудио элементы
+            const introVideo = document.getElementById('intro-video');
+            const bgMusic = document.getElementById('bg-music');
+            const voiceSfx = document.getElementById('voice-sfx');
+            const winSfx = document.getElementById('win-sfx');
+            
+            // Управление громкостью для ВСЕХ звуков
+            document.getElementById('volume-slider').addEventListener('input', (e) => {
+                const vol = e.target.value;
+                [introVideo, bgMusic, voiceSfx, winSfx].forEach(audio => {
+                    if (audio) audio.volume = vol;
+                });
+            });
+
+            function transitionTo(nextId, fadeDelay = 1000) {
+                const current = Object.values(screens).find(s => s.classList.contains('active'));
+                if (current) current.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    if (current) {
+                        current.classList.remove('fade-out');
+                        current.classList.remove('active');
+                    }
+                    screens[nextId].classList.add('active');
+
+                    if (nextId === 'dossier') startDossierSequence();
+                    if (nextId === 'minigame') initMinigame();
+                }, fadeDelay);
+            }
+
+            const startBtn = document.getElementById('start-btn');
+            const startHint = document.getElementById('sound-hint');
+            
+            // Запуск видео по кнопке
+            startBtn.addEventListener('click', () => {
+                startBtn.style.display = 'none'; 
+                startHint.style.display = 'none';
+                if (introVideo) {
+                    introVideo.muted = false;
+                    const playPromise = introVideo.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(() => {
+                            startBgMusic();
+                            transitionTo('dossier');
+                        });
+                    }
+                }
+            });
+
+            // Запуск музыки после окончания (или ошибки) видео
+            function startBgMusic() {
+                if (bgMusic) {
+                    bgMusic.volume = document.getElementById('volume-slider').value; // Учитываем ползунок
+                    bgMusic.play().catch(e => console.log('BGM Error:', e));
+                }
+            }
+
+            if (introVideo) {
+                introVideo.addEventListener('ended', () => {
+                    startBgMusic();
+                    transitionTo('dossier');
+                });
+                introVideo.addEventListener('error', () => {
+                    startBgMusic();
+                    transitionTo('dossier');
+                });
+            }
+
+            // Досье
+            function startDossierSequence() {
+                setTimeout(() => {
+                    document.getElementById('dossier-content').style.opacity = '1';
+                }, 1000);
+                setTimeout(() => {
+                    document.getElementById('assign-btn').classList.remove('hidden');
+                    document.getElementById('assign-btn').classList.add('block');
+                }, 3000);
+            }
+            document.getElementById('assign-btn').addEventListener('click', () => transitionTo('gta'));
+
+            // Диалог и Озвучка
+            const dialogText = document.getElementById('dialog-text');
+            const dialogChoices = document.getElementById('dialog-choices');
+            const msg = 'Переводчик: Босс говорит, Синдикат перехватил секретный манускрипт. Наши люди не могут его прочесть. Нужен спец 43-го уровня. Расшифруй текст без ошибок.';
+            let gtaActivated = false;
+
+            new MutationObserver(() => {
+                if (screens.gta.classList.contains('active') && !gtaActivated) {
+                    gtaActivated = true;
+                    
+                    // Запуск озвучки диалога
+                    if (voiceSfx) {
+                        voiceSfx.volume = document.getElementById('volume-slider').value;
+                        voiceSfx.play().catch(e => console.log('Voice Error:', e));
+                    }
+
+                    let i = 0;
+                    dialogText.innerHTML = '<span class="tw-cursor">&nbsp;</span>';
+                    const interval = setInterval(() => {
+                        if (i < msg.length) {
+                            dialogText.innerHTML = dialogText.innerHTML.replace('<span class="tw-cursor">&nbsp;</span>', '') + msg[i] + '<span class="tw-cursor">&nbsp;</span>';
+                            i++;
+                        } else {
+                            clearInterval(interval);
+                            dialogText.innerHTML = dialogText.innerHTML.replace('<span class="tw-cursor">&nbsp;</span>', '');
+                            dialogChoices.classList.remove('hidden');
+                            dialogChoices.classList.add('flex');
+                            if (voiceSfx) voiceSfx.pause(); // Останавливаем голос, когда текст напечатан
+                        }
+                    }, 40);
+                }
+            }).observe(screens.gta, { attributes: true, attributeFilter: ['class'] });
+
+            dialogChoices.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('gta-menu-btn')) return;
+                dialogChoices.style.display = 'none';
+                
+                const reply = document.createElement('p');
+                reply.className = 'font-gta text-yellow-500 mt-4 text-xl tracking-wider';
+                reply.textContent = e.target.dataset.choice === 'start' ? 'Босс кивает. Приступаем к работе.' : 'Босс усмехается. Двойная ставка одобрена.';
+                dialogText.parentElement.appendChild(reply);
+                
+                setTimeout(() => transitionTo('minigame'), 2000);
+            });
+
+            // Мини-игра
+            const rounds = [
+                {
+                    chinese: "祝你健康安宁",
+                    correct: ["Желаю", "крепкого", "здоровья", "и", "спокойствия"],
+                    bank: ["Желаю", "крепкого", "суеты", "здоровья", "дедлайнов", "и", "спокойствия"]
+                },
+                {
+                    chinese: "工作轻松，财源广进",
+                    correct: ["Пусть", "работа", "дается", "легко", "а", "доходы", "растут"],
+                    bank: ["Пусть", "баги", "работа", "дается", "легко", "а", "доходы", "растут"]
+                }
+            ];
+
+            let currentRound = 0;
+            const answerZone = document.getElementById('mg-answer-zone');
+            const wordBank = document.getElementById('mg-word-bank');
+            const checkBtn = document.getElementById('mg-check-btn');
+
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function initMinigame() {
+                loadRound(currentRound);
+            }
+
+            function loadRound(index) {
+                const roundData = rounds[index];
+                document.getElementById('mg-round-text').textContent = `ЭТАП ${index + 1} ИЗ ${rounds.length}`;
+                document.getElementById('mg-chinese').textContent = roundData.chinese;
+                
+                answerZone.innerHTML = '';
+                wordBank.innerHTML = '';
+                checkBtn.classList.add('hidden');
+
+                const shuffledBank = shuffleArray([...roundData.bank]);
+                
+                shuffledBank.forEach(word => {
+                    const btn = document.createElement('button');
+                    btn.className = 'bg-white text-black font-bold px-4 py-2 rounded shadow-md border-b-4 border-gray-300 hover:bg-gray-100 transition-all transform hover:-translate-y-1';
+                    btn.textContent = word;
+                    btn.addEventListener('click', handleWordClick);
+                    wordBank.appendChild(btn);
+                });
+            }
+
+            function handleWordClick(e) {
+                const btn = e.target;
+                if (btn.parentElement === wordBank) {
+                    answerZone.appendChild(btn);
+                } else {
+                    wordBank.appendChild(btn);
+                }
+                
+                if (answerZone.children.length > 0) {
+                    checkBtn.classList.remove('hidden');
+                } else {
+                    checkBtn.classList.add('hidden');
+                }
+            }
+
+            checkBtn.addEventListener('click', () => {
+                const currentAnswer = Array.from(answerZone.children).map(btn => btn.textContent);
+                const isCorrect = currentAnswer.join(' ') === rounds[currentRound].correct.join(' ');
+
+                if (isCorrect) {
+                    checkBtn.classList.add('bg-green-500', 'text-white');
+                    checkBtn.textContent = 'ВЕРНО!';
+                    
+                    setTimeout(() => {
+                        checkBtn.classList.remove('bg-green-500', 'text-white');
+                        checkBtn.textContent = 'Проверить';
+                        currentRound++;
+                        if (currentRound < rounds.length) {
+                            loadRound(currentRound);
+                        } else {
+                            transitionTo('final');
+                        }
+                    }, 1000);
+                } else {
+                    answerZone.classList.add('shake');
+                    checkBtn.classList.add('bg-red-500', 'text-white');
+                    checkBtn.textContent = 'ОШИБКА';
+                    setTimeout(() => {
+                        answerZone.classList.remove('shake');
+                        checkBtn.classList.remove('bg-red-500', 'text-white');
+                        checkBtn.textContent = 'Проверить';
+                    }, 800);
+                }
+            });
+
+            // Финал
+            document.getElementById('finish-btn').addEventListener('click', () => {
+                document.getElementById('mission-passed').classList.remove('hidden');
+                document.getElementById('mission-passed').classList.add('flex');
+                
+                // Звук прохождения миссии (если есть)
+                if (winSfx) {
+                    winSfx.volume = document.getElementById('volume-slider').value;
+                    winSfx.play().catch(e => console.log('Win SFX Error:', e));
+                }
+                
+                const duration = 5000;
+                const animationEnd = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 5,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#f1c40f', '#e67e22', '#ffffff'] 
+                    });
+                    confetti({
+                        particleCount: 5,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#f1c40f', '#e67e22', '#ffffff']
+                    });
+
+                    if (Date.now() < animationEnd) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+            });
+        })();
+    </script>
+</body>
+</html>
